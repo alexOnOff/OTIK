@@ -46,9 +46,23 @@ namespace OTIK_Lab1
             }
         }
 
-        public static void Decode()
+        public static void Decode(FileManager fileManager)
         {
-            
+            string binaryFylePath = fileManager.PathToZip + "zip.nkvd";
+
+            using (BinaryReader binaryReader = new BinaryReader(File.Open(binaryFylePath,FileMode.Open)))
+            {
+                byte[] fileSignature = binaryReader.ReadBytes(_signature.Length);
+                if (!fileSignature.SequenceEqual(_signature))
+                {
+                    Console.WriteLine("Input file has incorrect signature!");
+                    return;
+                }
+
+                binaryReader.BaseStream.Position = 8;
+                int fileNameLen = binaryReader.ReadBytes(1)[0];
+                Console.WriteLine(fileNameLen);
+            }
         }
 
 
