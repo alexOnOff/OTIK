@@ -8,27 +8,34 @@ namespace OTIK_Lab1
 {
     public class FileManager
     {
-        private List<string> FilePath { get; set; }
+        public List<string> FilePath;
+        public List<FileInfo> Files;
+        public string PathToZip;
 
         public FileManager()
         {
             FilePath = new List<string>();
+            PathToZip = string.Empty;
+            Files = new List<FileInfo>();
         }
 
-        public FileManager(List<string> filePath)
+        public FileManager(List<string> filePath, string pathToZip)
         {
-            this.FilePath = filePath;
+            FilePath = filePath;
+            PathToZip = pathToZip;
+            Files = new List<FileInfo>();
         }
 
         public void ReadFiles()
         {
             foreach (var path in this.FilePath)
             {
-                Console.WriteLine(path);
-
                 FileInfo fileInfo = new FileInfo(path);
-                Console.WriteLine(File.ReadAllText(path));
 
+                if(fileInfo.Exists)
+                {
+                    Files.Add(fileInfo);
+                }
             }
         }
     }
