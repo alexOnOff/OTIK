@@ -8,9 +8,9 @@ namespace OTIK_Lab1
 {
     public class FileManager
     {
-        public List<string> FilePath;
-        public List<FileInfo> Files;
-        public string PathToZip;
+        public List<string> FilePath;// массив путей до файлов
+        public List<FileInfo> Files; // массив "информации" файлов
+        public string PathToZip;     // тут понятно
 
         public FileManager()
         {
@@ -28,6 +28,7 @@ namespace OTIK_Lab1
 
         public void ReadFiles()
         {
+            //перебираю все путя и добавляю в массив fileInfo все что есть
             foreach (var path in this.FilePath)
             {
                 FileInfo fileInfo = new FileInfo(path);
