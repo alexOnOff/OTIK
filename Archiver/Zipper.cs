@@ -51,7 +51,7 @@ public static class Zipper
 
     public static void Decode(string directory)
     {
-        var encodedFilesPath = Path.Combine(directory, "encodedFiles/");
+        var encodedFilesPath = Path.Combine(directory, "decodedFiles/");
         
         if (!Directory.Exists(encodedFilesPath))
         {
