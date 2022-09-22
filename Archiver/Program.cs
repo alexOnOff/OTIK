@@ -1,4 +1,4 @@
-﻿namespace OTIK_Lab1;
+﻿namespace Archiver;
 
 public static class Program
 {
