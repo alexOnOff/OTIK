@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.32014.148
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OTIK-Lab1", "OTIK-Lab1\OTIK-Lab1.csproj", "{94F99ECE-86E4-4600-8589-62368A5CEAE8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Archiver", "Archiver\Archiver.csproj", "{94F99ECE-86E4-4600-8589-62368A5CEAE8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
