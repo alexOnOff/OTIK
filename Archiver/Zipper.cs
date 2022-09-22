@@ -17,6 +17,8 @@ public static class Zipper
 
     private static readonly int ArchiveBytesOffset = Signature.Length + 4;
 
+    private static string pathBase;
+
     public static void Encode(string directory)
     {
         var archivePath = Path.Combine(directory, ArchiveName);
@@ -30,23 +32,9 @@ public static class Zipper
         writer.Write(CodingByte);
         writer.Write(AddByte);
 
-        // write files content
-        var filesInfo = GetFiles(directory);
-        
-        foreach(var fileInfo in filesInfo)
-        {
-            if (!fileInfo.Exists) continue;
-            
-            byte[] nameBytes = Encoding.UTF8.GetBytes(fileInfo.Name);
-            byte[] contentBytes = File.ReadAllBytes(fileInfo.FullName);
-
-            writer.Write(fileInfo.Name.Length); 
-            writer.Write(nameBytes);
-            writer.Write(contentBytes.Length);
-            writer.Write(contentBytes);
-        }
-
-        Console.WriteLine("All files has been written");
+        var filesDirectory = Path.Combine(directory, "files");
+        pathBase = filesDirectory;
+        ProcessDirectory(filesDirectory, writer);
     }
 
     public static void Decode(string directory)
@@ -89,7 +77,9 @@ public static class Zipper
             var fileLen = binaryReader.ReadInt32();
             var fileByteArray = binaryReader.ReadBytes(fileLen);
 
-            using var fs = File.Create(Path.Combine(encodedFilesPath, fileName));
+            var filePath = Path.Combine(encodedFilesPath, fileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);   
+            using var fs = File.Create(filePath);
             fs.Write(fileByteArray, 0, fileLen);
         }
     }
@@ -101,5 +91,32 @@ public static class Zipper
             .GetFiles(pathToFiles)
             .Select(file => new FileInfo(file))
             .ToList();
+    }
+
+    private static void ProcessDirectory(string path, BinaryWriter writer)
+    {
+        var files = Directory.GetFiles(path);
+        foreach(var file in files)
+        {
+            ProcessFile(new FileInfo(file), writer);
+        }
+        var subDirectories = Directory.GetDirectories(path);
+        foreach(var subDirectory in subDirectories)
+        {
+            ProcessDirectory(subDirectory, writer);
+        }
+    }
+
+    private static void ProcessFile(FileInfo fileInfo, BinaryWriter writer)
+    {
+        var fileName = fileInfo.FullName.Replace(pathBase + @"\", "");
+        byte[] nameBytes = Encoding.UTF8.GetBytes(fileName);
+
+        byte[] contentBytes = File.ReadAllBytes(fileInfo.FullName);
+
+        writer.Write(fileName.Length);
+        writer.Write(nameBytes);
+        writer.Write(contentBytes.Length);
+        writer.Write(contentBytes);
     }
 }
