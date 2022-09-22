@@ -2,9 +2,11 @@
 
 public static class Program
 {
+    private static readonly string directory = Directory.GetCurrentDirectory();
+
     public static void Main()
     {
-        Zipper.Encode(Directory.GetCurrentDirectory());
-        Zipper.Decode(Directory.GetCurrentDirectory());
+        Zipper.Encode(directory);
+        Zipper.Decode(directory);
     }
 }
