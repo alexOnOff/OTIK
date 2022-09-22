@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.32014.148
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OTIK-Lab1", "OTIK-Lab1\OTIK-Lab1.csproj", "{94F99ECE-86E4-4600-8589-62368A5CEAE8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Archiver", "Archiver\Archiver.csproj", "{94F99ECE-86E4-4600-8589-62368A5CEAE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{65B25B60-6B4E-4365-9A1E-14E4CDB8E661}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{94F99ECE-86E4-4600-8589-62368A5CEAE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{94F99ECE-86E4-4600-8589-62368A5CEAE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{94F99ECE-86E4-4600-8589-62368A5CEAE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{65B25B60-6B4E-4365-9A1E-14E4CDB8E661}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{65B25B60-6B4E-4365-9A1E-14E4CDB8E661}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{65B25B60-6B4E-4365-9A1E-14E4CDB8E661}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{65B25B60-6B4E-4365-9A1E-14E4CDB8E661}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
