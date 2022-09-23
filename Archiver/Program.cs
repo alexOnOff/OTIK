@@ -10,13 +10,18 @@ public static class Program
         {
             Console.WriteLine("1 - Encode\n2 - Decode\n");
             Console.Write("Your choice: ");
-            int choice = Convert.ToInt32(Console.ReadLine());
-            if (choice == 1)
-                Zipper.Encode(directory);
-            else if (choice == 2)
-                Zipper.Decode(directory);
-            else
-                throw new ArgumentException("Invalid argument!");
+            var choice = Convert.ToInt32(Console.ReadLine());
+            switch (choice)
+            {
+                case 1:
+                    Zipper.Encode(directory);
+                    break;
+                case 2:
+                    Zipper.Decode(directory);
+                    break;
+                default:
+                    throw new ArgumentException("Invalid argument!");
+            }
         }
         catch (Exception ex)
         {
