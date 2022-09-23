@@ -98,7 +98,7 @@ public static class Zipper
         var files = Directory.GetFiles(path);
         foreach (var file in files)
         {
-            if (file.StartsWith('.')) continue;
+            //if (file.StartsWith('.')) continue;
             ProcessFile(new FileInfo(file), writer);
         }
 
@@ -115,7 +115,7 @@ public static class Zipper
 
         // Ignore hide files, that start with dot
         var pattern = Path.DirectorySeparatorChar + ".";
-        if (fileName.Contains(pattern) || fileName.StartsWith('.')) return;
+        //if (fileName.Contains(pattern) || fileName.StartsWith('.')) return;
 
         byte[] nameBytes = Encoding.UTF8.GetBytes(fileName);
 
