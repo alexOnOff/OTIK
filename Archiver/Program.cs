@@ -1,4 +1,6 @@
-﻿namespace Archiver;
+﻿using System.Buffers.Binary;
+
+namespace Archiver;
 
 public static class Program
 {
@@ -8,8 +10,8 @@ public static class Program
     {
         try
         {
-            //RunArchiver();
-            RunAnalyzer();
+            RunArchiver();
+            //RunAnalyzer();
         }
         catch (Exception e)
         {
@@ -24,13 +26,14 @@ public static class Program
         Console.WriteLine("1 - Encode\n2 - Decode\n");
         Console.Write("Your choice: ");
         var choice = Convert.ToInt32(Console.ReadLine());
+        var zipper = new Zipper(directory);
         switch (choice)
         {
             case 1:
-                Zipper.Encode(directory);
+                zipper.Encode();
                 break;
             case 2:
-                Zipper.Decode(directory);
+                zipper.Decode();
                 break;
             default:
                 throw new ArgumentException("Invalid argument!");

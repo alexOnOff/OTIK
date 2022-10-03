@@ -2,7 +2,7 @@
 
 namespace Archiver;
 
-public static class Zipper
+public class Zipper
 {
     // Archive info
     private const string ArchiveExtension = "nkvd";
@@ -10,120 +10,158 @@ public static class Zipper
 
     //  Archive header fields
     private static readonly byte[] Signature = { 0x6e, 0x6b, 0x76, 0x64 };
-    private const byte Version = 0x31;
-    private const byte SubVersion = 0x31;
-    private const byte CodingByte = 0x30;
+    private const byte Version = 0x32;
+    private const byte CodingByteWithoutCompressing = 0x30;
+    private const byte CodingByteWithCompressing = 0x31;
     private const byte AddByte = 0x30;
 
     private static readonly int ArchiveBytesOffset = Signature.Length + 4;
 
-    private static string pathBase;
+    private readonly string _directory;
+    private readonly string _archivePath;
+    private readonly string _filesDirectory;
+    private readonly string _encodedFilesPath;
 
-    public static void Encode(string directory)
+    public Zipper(string directory)
     {
-        var archivePath = Path.Combine(directory, ArchiveName);
+        _directory = directory;
+        _archivePath = Path.Combine(directory, ArchiveName);
+        _filesDirectory =  Path.Combine(_directory, "files");
+        _encodedFilesPath = Path.Combine(_directory, "decodedFiles/");
+    }
 
-        using var writer = new BinaryWriter(File.Open(archivePath, FileMode.OpenOrCreate));
-
+    public void Encode()
+    {
+        using var writer = new BinaryWriter(File.Open(_archivePath, FileMode.OpenOrCreate));
+        
         // write header
         writer.Write(Signature);
         writer.Write(Version);
-        writer.Write(SubVersion);
-        writer.Write(CodingByte);
-        writer.Write(AddByte);
 
-        var filesDirectory = Path.Combine(directory, "files");
-        pathBase = filesDirectory;
-        ProcessDirectory(filesDirectory, writer);
+        var bytes = new List<byte>();
+        ProcessDirectory(_filesDirectory, ref bytes);
+
+        var compressedBytes = CompressBytes(in bytes);
+
+        if (compressedBytes.Count < bytes.Count) // using compressing
+        {
+            // add rest part of header
+            writer.Write(CodingByteWithCompressing);
+            writer.Write(AddByte);
+
+            // write content
+            compressedBytes.ForEach(b => writer.Write(b));
+        }
+        else // NOT using compressing
+        {
+            // add rest part of header
+            writer.Write(CodingByteWithoutCompressing);
+            writer.Write(AddByte);
+
+            // write content
+            bytes.ForEach((b => writer.Write(b)));
+            
+        }
     }
 
-    public static void Decode(string directory)
+    private List<byte> CompressBytes(in List<byte> bytes)
     {
-        var encodedFilesPath = Path.Combine(directory, "decodedFiles/");
+        // TODO: compressing table should be inside bytes array
+        throw new NotImplementedException();
+    }
 
-        if (!Directory.Exists(encodedFilesPath))
-        {
-            Directory.CreateDirectory(encodedFilesPath);
-        }
-
-        if (Directory.GetFiles(encodedFilesPath).Length != 0)
-        {
-            Directory.Delete(encodedFilesPath, true);
-            Directory.CreateDirectory(encodedFilesPath);
-        }
-
-        var archivePath = Path.Combine(directory, ArchiveName);
-
+    public void Decode()
+    {
+        // Check if archive exists
+        var archivePath = Path.Combine(_directory, ArchiveName);
         if (!File.Exists(archivePath))
         {
             throw new FileNotFoundException($"Archive not found at path: {archivePath}");
         }
 
+        // Check signature
         using var binaryReader = new BinaryReader(File.Open(archivePath, FileMode.Open));
         var fileSignature = binaryReader.ReadBytes(Signature.Length);
         if (!fileSignature.SequenceEqual(Signature))
         {
             throw new FormatException("Input file has incorrect signature!");
         }
-
-        // TODO: read all field and check there validity
-        binaryReader.BaseStream.Position = ArchiveBytesOffset;
-
-        while (binaryReader.BaseStream.Position < binaryReader.BaseStream.Length)
+        
+        // Prepare folder for decoded files
+        if (!Directory.Exists(_encodedFilesPath))
         {
-            var fileNameLen = binaryReader.ReadInt32();
-            var fileName = new string(binaryReader.ReadChars(fileNameLen));
+            Directory.CreateDirectory(_encodedFilesPath);
+        }
 
-            var fileLen = binaryReader.ReadInt32();
-            var fileByteArray = binaryReader.ReadBytes(fileLen);
+        if (Directory.GetFiles(_encodedFilesPath).Length != 0)
+        {
+            Directory.Delete(_encodedFilesPath, true);
+            Directory.CreateDirectory(_encodedFilesPath);
+        }
 
-            var filePath = Path.Combine(encodedFilesPath, fileName);
+        var version = binaryReader.ReadByte();
+        if (version != 0x32)
+            throw new NotSupportedException($"Version ${version} not supported");
+
+        var compressingCode = binaryReader.ReadByte();
+        _ = binaryReader.ReadByte(); // skip AddByte
+        
+        if (compressingCode == CodingByteWithCompressing) // with compressing
+        {
+            throw new NotImplementedException();
+        }
+        else // without compressing
+        {
+            DecodeFilesWithoutCompressing(in binaryReader);
+        }
+    }
+
+    private void DecodeFilesWithoutCompressing(in BinaryReader reader)
+    {
+        while (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var fileNameLen = reader.ReadInt32();
+            var fileName = new string(reader.ReadChars(fileNameLen));
+
+            var fileLen = reader.ReadInt32();
+            var fileByteArray = reader.ReadBytes(fileLen);
+
+            var filePath = Path.Combine(_encodedFilesPath, fileName);
             Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
             using var fs = File.Create(filePath);
             fs.Write(fileByteArray, 0, fileLen);
         }
     }
 
-    private static List<FileInfo> GetFiles(string directory)
-    {
-        var pathToFiles = Path.Combine(directory, "files/");
-        return Directory
-            .GetFiles(pathToFiles)
-            .Select(file => new FileInfo(file))
-            .ToList();
-    }
-
-    private static void ProcessDirectory(string path, BinaryWriter writer)
+    private void ProcessDirectory(string path, ref List<byte> bytes)
     {
         var files = Directory.GetFiles(path);
         foreach (var file in files)
         {
-            //if (file.StartsWith('.')) continue;
-            ProcessFile(new FileInfo(file), writer);
+            ProcessFile(new FileInfo(file), ref bytes);
         }
 
         var subDirectories = Directory.GetDirectories(path);
         foreach (var subDirectory in subDirectories)
         {
-            ProcessDirectory(subDirectory, writer);
+            ProcessDirectory(subDirectory, ref bytes);
         }
     }
 
-    private static void ProcessFile(FileInfo fileInfo, BinaryWriter writer)
+    private void ProcessFile(FileInfo fileInfo, ref List<byte> bytes)
     {
-        var fileName = fileInfo.FullName.Replace(pathBase + Path.DirectorySeparatorChar, "");
-
-        // Ignore hide files, that start with dot
-        var pattern = Path.DirectorySeparatorChar + ".";
-        //if (fileName.Contains(pattern) || fileName.StartsWith('.')) return;
-
-        byte[] nameBytes = Encoding.UTF8.GetBytes(fileName);
-
-        byte[] contentBytes = File.ReadAllBytes(fileInfo.FullName);
-
-        writer.Write(fileName.Length);
-        writer.Write(nameBytes);
-        writer.Write(contentBytes.Length);
-        writer.Write(contentBytes);
+        var fileName = fileInfo.FullName.Replace(_filesDirectory + Path.DirectorySeparatorChar, "");
+        
+        // Skip MacOS system files
+        if (fileName.Contains(".DS_Store"))
+            return;
+        
+        var nameBytes = Encoding.UTF8.GetBytes(fileName);
+        bytes.AddRange(BitConverter.GetBytes(fileName.Length));
+        bytes.AddRange(nameBytes);
+        
+        var contentBytes = File.ReadAllBytes(fileInfo.FullName);
+        bytes.AddRange(BitConverter.GetBytes(contentBytes.Length));
+        bytes.AddRange(contentBytes);
     }
 }
