@@ -95,6 +95,7 @@ public class Zipper
             probabilytySum += byteEntry.Value;
 
             compressBytes.Add(byteEntry.Key);
+            byte b = ConvertOneByteIntToInt(binary.Length);
             compressBytes.Add(ConvertOneByteIntToInt(binary.Length)); // длина кода 
 
             byte[] symbolCode = ConvertStringBitsToByteArray(binary);
@@ -233,15 +234,14 @@ public class Zipper
 
     private byte ConvertOneByteIntToInt(int oneByteNumber)
     {
-        byte[] intBytes = BitConverter.GetBytes(oneByteNumber);
-        Array.Reverse(intBytes);
-        return intBytes[0];
+        byte b = Convert.ToByte((oneByteNumber - 1).ToString());
+        return b;
     }
 
     
     private byte[] ConvertStringBitsToByteArray(string bits)
     {
-        int numOfBytes = bits.Length / 8 + 1;
+        int numOfBytes = (int)Math.Ceiling(bits.Length / 8d);
         byte[] bytes = new byte[numOfBytes];
         bits = bits.PadRight(numOfBytes * 8, '0');
 
