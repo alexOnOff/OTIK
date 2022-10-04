@@ -23,7 +23,7 @@ public static class Program
 
     private static void RunArchiver()
     {
-        Console.WriteLine("1 - Encode\n2 - Decode\n");
+        Console.WriteLine("1 - Encode\n2 - Decode\n\n");
         Console.Write("Your choice: ");
         var choice = Convert.ToInt32(Console.ReadLine());
         var zipper = new Zipper(directory);
