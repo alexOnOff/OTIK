@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Text;
+using System;
 
 namespace Archiver;
 
@@ -89,7 +90,7 @@ public class Zipper
                 binary = binary.Substring(8, length);
             }
 
-            Console.WriteLine(binary);
+            // Console.WriteLine(binary);
 
             bytesProbabylityDictSum.Add(byteEntry.Key, binary);
             probabilytySum += byteEntry.Value;
@@ -156,11 +157,34 @@ public class Zipper
         
         if (compressingCode == CodingByteWithCompressing) // with compressing
         {
-            throw new NotImplementedException();
+            DecodeFilesWithCompressing(in binaryReader);
         }
         else // without compressing
         {
             DecodeFilesWithoutCompressing(in binaryReader);
+        }
+    }
+
+    private void DecodeFilesWithCompressing(in BinaryReader reader)
+    {
+        var dictLen = reader.ReadByte() + 1;
+        Console.WriteLine(dictLen);
+        for (var i = 0; i < dictLen; i++)
+        {
+            var symbol = reader.ReadByte();
+            var codeLen = reader.ReadByte() + 1;
+            var codeBytes = reader.ReadBytes((int)Math.Ceiling(codeLen / 8d));
+            var bites = new BitArray(codeBytes);
+            for (var j = 0; j < codeLen; j++)
+            {
+                var b = bites[j];
+                Console.Write(b ? "1" : "0");
+            }
+
+            var toSkip = (int)Math.Ceiling(codeLen / 8d) * 8 - codeLen;
+            //_ = reader.ReadBytes(toSkip);
+
+            Console.WriteLine();
         }
     }
 
