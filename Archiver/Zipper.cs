@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Collections;
+using System.Text;
 
 namespace Archiver;
 
@@ -64,10 +65,56 @@ public class Zipper
         }
     }
 
-    private List<byte> CompressBytes(in List<byte> bytes)
+    public List<byte> CompressBytes(in List<byte> bytes)
     {
-        // TODO: compressing table should be inside bytes array
-        throw new NotImplementedException();
+        List<byte> compressBytes = new();
+        StringBuilder fileBitArrayString = new StringBuilder(16 * bytes.Count);
+
+        var bytesDict = FileManager.GetEntriesCount(bytes);
+        var bytesProbabylityDict = FileManager.GetEntriesProbability(bytesDict);
+        bytesProbabylityDict = FileManager.SortDictionary(bytesProbabylityDict, SortType.ByEntries);
+        double probabilytySum = 0;
+        var bytesProbabylityDictSum = new Dictionary<byte, string>();
+
+        compressBytes.Add(ConvertOneByteIntToInt(bytesProbabylityDict.Count)); // количество символов в словаре
+
+        foreach (var byteEntry in bytesProbabylityDict)
+        {
+            var y = BitConverter.DoubleToInt64Bits(probabilytySum);
+            var length = GetLenghtOfBinary(byteEntry.Value);
+            string binary = Convert.ToString(y, 2);
+
+            if (binary.Length > 24)
+            {
+                binary = binary.Substring(8, length);
+            }
+
+            Console.WriteLine(binary);
+
+            bytesProbabylityDictSum.Add(byteEntry.Key, binary);
+            probabilytySum += byteEntry.Value;
+
+            compressBytes.Add(byteEntry.Key);
+            compressBytes.Add(ConvertOneByteIntToInt(binary.Length)); // длина кода 
+
+            byte[] symbolCode = ConvertStringBitsToByteArray(binary);
+
+            foreach(var byteCode in symbolCode)
+            {
+                compressBytes.Add(byteCode);
+            }
+        }
+
+        foreach (var byteEntry in bytes)
+            fileBitArrayString.Append(bytesProbabylityDictSum[byteEntry]);
+            
+       
+        byte[] fileByteArray = ConvertStringBitsToByteArray(fileBitArrayString.ToString());
+
+        foreach (var byteEntry in fileByteArray)
+            compressBytes.Add(byteEntry);
+
+        return compressBytes;
     }
 
     public void Decode()
@@ -163,5 +210,46 @@ public class Zipper
         var contentBytes = File.ReadAllBytes(fileInfo.FullName);
         bytes.AddRange(BitConverter.GetBytes(contentBytes.Length));
         bytes.AddRange(contentBytes);
+    }
+
+    private int GetLenghtOfBinary(double probability)
+    {
+        if (probability >= 1)
+            throw new Exception();
+
+        int n = 1;
+        while((double)1/n > probability && n < 24)
+            n++;
+        
+
+        return n;
+    }
+
+
+    //FOR DECODE
+    /*            long x = Convert.ToInt64(binary, 2);
+            double y1 = BitConverter.Int64BitsToDouble(x);
+            Console.WriteLine(y1);*/
+
+    private byte ConvertOneByteIntToInt(int oneByteNumber)
+    {
+        byte[] intBytes = BitConverter.GetBytes(oneByteNumber);
+        Array.Reverse(intBytes);
+        return intBytes[0];
+    }
+
+    
+    private byte[] ConvertStringBitsToByteArray(string bits)
+    {
+        int numOfBytes = bits.Length / 8 + 1;
+        byte[] bytes = new byte[numOfBytes];
+        bits = bits.PadRight(numOfBytes * 8, '0');
+
+        for (int i = 0; i < numOfBytes; ++i)
+        {
+            bytes[i] = Convert.ToByte(bits.Substring(8 * i, 8), 2);
+        }
+
+        return bytes;
     }
 }

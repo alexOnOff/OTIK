@@ -12,10 +12,12 @@ public class FileManager
         _fileInfo = new FileInfo(path);
 
     }
+
+    public FileManager() {}
     
     private int FileLength => Convert.ToInt32(_fileInfo.Length);
     
-    private static Dictionary<T, int> GetEntriesCount<T>(IEnumerable<T> symbols) where T : notnull
+    public static Dictionary<T, int> GetEntriesCount<T>(IEnumerable<T> symbols) where T : notnull
     {
         var stats = new Dictionary<T, int>();
         
@@ -27,7 +29,7 @@ public class FileManager
         return stats;
     }
 
-    private static Dictionary<T, double> GetEntriesProbability<T>(Dictionary<T, int> stat) where T : notnull
+    public static Dictionary<T, double> GetEntriesProbability<T>(Dictionary<T, int> stat) where T : notnull
     {
         var totalCounts = stat.Values.Sum();
         var symbolProbability = new Dictionary<T, double>();
@@ -48,7 +50,7 @@ public class FileManager
         }
     }
 
-    private static Dictionary<T, TV> SortDictionary<T, TV>(Dictionary<T, TV> dict, SortType sortType) where T : notnull
+    public static Dictionary<T, TV> SortDictionary<T, TV>(Dictionary<T, TV> dict, SortType sortType) where T : notnull
     {
         return sortType switch
         {
@@ -182,4 +184,5 @@ public class FileManager
             .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         PrintStat(topSymbolsFromNonLetters);
     }
+
 }
