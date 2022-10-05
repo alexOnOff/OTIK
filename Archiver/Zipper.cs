@@ -66,7 +66,7 @@ public class Zipper
         }
     }
 
-    public List<byte> CompressBytes(in List<byte> bytes)
+    private List<byte> CompressBytes(in List<byte> bytes)
     {
         List<byte> compressBytes = new();
         StringBuilder fileBitArrayString = new StringBuilder(16 * bytes.Count);
@@ -174,20 +174,25 @@ public class Zipper
             var symbol = reader.ReadByte();
             var codeLen = reader.ReadByte() + 1;
             var codeBytes = reader.ReadBytes((int)Math.Ceiling(codeLen / 8d));
-            var bites = new BitArray(codeBytes);
-            for (var j = 0; j < codeLen; j++)
+            foreach (var b in codeBytes)
             {
-                var b = bites[j];
-                Console.Write(b ? "1" : "0");
+                var res = GetBites(b);
+                foreach (var re in res)
+                {
+                    Console.Write(re ? "1" : "0");
+                }
             }
-
-            var toSkip = (int)Math.Ceiling(codeLen / 8d) * 8 - codeLen;
-            //_ = reader.ReadBytes(toSkip);
-
+            
             Console.WriteLine();
         }
     }
 
+    private static bool[] GetBites(byte b)
+    {
+        var str = Convert.ToString(b, 2);
+        return str.PadLeft(8).ToArray().Select(c => c == '1').ToArray();
+    }
+    
     private void DecodeFilesWithoutCompressing(in BinaryReader reader)
     {
         while (reader.BaseStream.Position < reader.BaseStream.Length)
@@ -237,7 +242,7 @@ public class Zipper
         bytes.AddRange(contentBytes);
     }
 
-    private int GetLenghtOfBinary(double probability)
+    private static int GetLenghtOfBinary(double probability)
     {
         if (probability >= 1)
             throw new Exception();
@@ -256,20 +261,20 @@ public class Zipper
             double y1 = BitConverter.Int64BitsToDouble(x);
             Console.WriteLine(y1);*/
 
-    private byte ConvertOneByteIntToInt(int oneByteNumber)
+    private static byte ConvertOneByteIntToInt(int oneByteNumber)
     {
         byte b = Convert.ToByte((oneByteNumber - 1).ToString());
         return b;
     }
 
     
-    private byte[] ConvertStringBitsToByteArray(string bits)
+    private static byte[] ConvertStringBitsToByteArray(string bits)
     {
         int numOfBytes = (int)Math.Ceiling(bits.Length / 8d);
         byte[] bytes = new byte[numOfBytes];
         bits = bits.PadRight(numOfBytes * 8, '0');
 
-        for (int i = 0; i < numOfBytes; ++i)
+        for (var i = 0; i < numOfBytes; ++i)
         {
             bytes[i] = Convert.ToByte(bits.Substring(8 * i, 8), 2);
         }
