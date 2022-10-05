@@ -62,26 +62,24 @@ public class Zipper
 
             // write content
             bytes.ForEach((b => writer.Write(b)));
-            
         }
     }
 
-    private List<byte> CompressBytes(in List<byte> bytes)
+    private static List<byte> CompressBytes(in List<byte> bytes)
     {
         List<byte> compressBytes = new();
-        StringBuilder fileBitArrayString = new StringBuilder(16 * bytes.Count);
+        StringBuilder fileBitArrayString = new(16 * bytes.Count);
 
         var bytesDict = FileManager.GetEntriesCount(bytes);
-        var bytesProbabylityDict = FileManager.GetEntriesProbability(bytesDict);
-        bytesProbabylityDict = FileManager.SortDictionary(bytesProbabylityDict, SortType.ByEntries);
-        double probabilytySum = 0;
-        var bytesProbabylityDictSum = new Dictionary<byte, string>();
+        var bytesProbabilityDict = FileManager.GetEntriesProbability(bytesDict);
+        bytesProbabilityDict = FileManager.SortDictionary(bytesProbabilityDict, SortType.ByEntries);
+        double probabilitySum = 0;
+        var bytesProbabilityDictSum = new Dictionary<byte, string>();
+        compressBytes.Add(ConvertOneByteIntToInt(bytesProbabilityDict.Count)); // количество символов в словаре
 
-        compressBytes.Add(ConvertOneByteIntToInt(bytesProbabylityDict.Count)); // количество символов в словаре
-
-        foreach (var byteEntry in bytesProbabylityDict)
+        foreach (var byteEntry in bytesProbabilityDict)
         {
-            var y = BitConverter.DoubleToInt64Bits(probabilytySum);
+            var y = BitConverter.DoubleToInt64Bits(probabilitySum);
             var length = GetLenghtOfBinary(byteEntry.Value);
             string binary = Convert.ToString(y, 2);
 
@@ -90,10 +88,8 @@ public class Zipper
                 binary = binary.Substring(8, length);
             }
 
-            // Console.WriteLine(binary);
-
-            bytesProbabylityDictSum.Add(byteEntry.Key, binary);
-            probabilytySum += byteEntry.Value;
+            bytesProbabilityDictSum.Add(byteEntry.Key, binary);
+            probabilitySum += byteEntry.Value;
 
             compressBytes.Add(byteEntry.Key);
             byte b = ConvertOneByteIntToInt(binary.Length);
@@ -101,20 +97,17 @@ public class Zipper
 
             byte[] symbolCode = ConvertStringBitsToByteArray(binary);
 
-            foreach(var byteCode in symbolCode)
-            {
-                compressBytes.Add(byteCode);
-            }
+            compressBytes.AddRange(symbolCode);
         }
 
         foreach (var byteEntry in bytes)
-            fileBitArrayString.Append(bytesProbabylityDictSum[byteEntry]);
-            
-       
+        {
+            fileBitArrayString.Append(bytesProbabilityDictSum[byteEntry]);
+        }
+        
         byte[] fileByteArray = ConvertStringBitsToByteArray(fileBitArrayString.ToString());
 
-        foreach (var byteEntry in fileByteArray)
-            compressBytes.Add(byteEntry);
+        compressBytes.AddRange(fileByteArray);
 
         return compressBytes;
     }
@@ -165,10 +158,35 @@ public class Zipper
         }
     }
 
-    private void DecodeFilesWithCompressing(in BinaryReader reader)
+    private static void DecodeFilesWithCompressing(in BinaryReader reader)
     {
+        var codes = GetCodesForBytes(in reader);
+
+        var compressedBytes = reader.ReadBytes(Convert.ToInt32(reader.BaseStream.Length));
+        
+        var bitesString = GetBitesStringFromByteArray(compressedBytes);
+        // TODO: decompress bytes
+        Console.WriteLine(bitesString);
+    }
+
+    private static string GetBitesStringFromByteArray(IEnumerable<byte> bytes)
+    {
+        StringBuilder sb = new();
+
+        foreach (var b in bytes)
+        {
+            var bites = GetBites(b);
+            sb.Append(string.Join("", bites.Select(bit => bit ? "1" : "0")));
+        }
+
+        return sb.ToString();
+    }
+
+    private static Dictionary<bool[], byte> GetCodesForBytes(in BinaryReader reader)
+    {
+        Dictionary<bool[], byte> codes = new();
+
         var dictLen = reader.ReadByte() + 1;
-        Console.WriteLine(dictLen);
         for (var i = 0; i < dictLen; i++)
         {
             var symbol = reader.ReadByte();
@@ -177,14 +195,11 @@ public class Zipper
             foreach (var b in codeBytes)
             {
                 var res = GetBites(b);
-                foreach (var re in res)
-                {
-                    Console.Write(re ? "1" : "0");
-                }
+                codes[res] = symbol;
             }
-            
-            Console.WriteLine();
         }
+
+        return codes;
     }
 
     private static bool[] GetBites(byte b)
@@ -192,6 +207,7 @@ public class Zipper
         var str = Convert.ToString(b, 2);
         return str.PadLeft(8).ToArray().Select(c => c == '1').ToArray();
     }
+    
     
     private void DecodeFilesWithoutCompressing(in BinaryReader reader)
     {
@@ -249,22 +265,23 @@ public class Zipper
 
         int n = 1;
         while((double)1/n > probability && n < 24)
+        {
             n++;
+        }
         
-
         return n;
     }
 
 
     //FOR DECODE
-    /*            long x = Convert.ToInt64(binary, 2);
-            double y1 = BitConverter.Int64BitsToDouble(x);
-            Console.WriteLine(y1);*/
+    /*
+        long x = Convert.ToInt64(binary, 2);
+        double y1 = BitConverter.Int64BitsToDouble(x);
+    */
 
     private static byte ConvertOneByteIntToInt(int oneByteNumber)
     {
-        byte b = Convert.ToByte((oneByteNumber - 1).ToString());
-        return b;
+        return Convert.ToByte((oneByteNumber - 1).ToString());
     }
 
     
