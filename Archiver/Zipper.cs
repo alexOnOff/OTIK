@@ -106,6 +106,8 @@ public class Zipper
                 binary = binary.Substring(8, length);
             }
 
+            Console.WriteLine(binary + " - " + byteEntry.Key);
+
             bytesProbabilityDictSum.Add(byteEntry.Key, binary);
             probabilitySum += byteEntry.Value;
 
@@ -198,26 +200,25 @@ public class Zipper
         {
             substr = bitesString.Substring(start, len);
             var filteredCodes = codes.Keys.Where(code => code.StartsWith(substr)).ToList();
+            
             if (filteredCodes.Count == 0)
             {
                 throw new DecodingException($"No one code starts with {substr}");
             }
-            if (filteredCodes.Count == 1)
+            if (filteredCodes.Count == 1  && filteredCodes.Contains(substr))
             {
                 var code = codes[filteredCodes[0]];
                 decodedBytes.Add(Convert.ToByte(code));
-                foreach (var b in decodedBytes)
-                {       
-                    Console.Write(b + " ");
-                }
+                Console.Write(code + " ");
+
                 start += filteredCodes[0].Length;
-                len = 1;
+                len = 0;
             }
 
             len++;
         }
 
-        return decodedBytes;
+        return decodedBytes; // CORRECT
     }
 
     private static string GetBitesStringFromByteArray(IEnumerable<byte> bytes) 
@@ -227,6 +228,10 @@ public class Zipper
         foreach (var b in bytes)
         {
             var bites = GetBites(b);
+            for (int i = 0; i < 8 - bites.Length; i++)
+            {
+                sb.Append("0");
+            }
             sb.Append(string.Join("", bites.Select(bit => bit ? "1" : "0")));
         }
 
@@ -248,13 +253,16 @@ public class Zipper
             foreach (var b in codeBytes)
             {
                 var res = GetBites(b).Select(bit => bit ? "1" : "0");
-                str += string.Join("", res);
+                var temp = string.Join("", res);
+                temp = temp.PadLeft(8, '0');
+                str += string.Join("", temp);
             }
 
+            str = str.Substring(0, codeLen);
             if (str == "00000000") str = "0";
             Console.WriteLine(str);
             var tempSymbol = symbol.ToString();
-            codes[str] = tempSymbol == "0" ? tempSymbol : tempSymbol.Replace("0", "!");
+            codes[str] = tempSymbol;
         }
 
         return codes;
