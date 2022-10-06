@@ -34,6 +34,10 @@ public class Zipper
 
     public void Encode()
     {
+        if (File.Exists(_archivePath))
+        {
+            File.Delete(_archivePath);
+        }
         using var writer = new BinaryWriter(File.Open(_archivePath, FileMode.OpenOrCreate));
         
         // write header
@@ -42,9 +46,23 @@ public class Zipper
 
         var bytes = new List<byte>();
         ProcessDirectory(_filesDirectory, ref bytes);
+        Console.WriteLine("Original bytes: ");
+        foreach (var b in bytes)
+        {
+            Console.Write(b + " ");
+        }
 
+        Console.WriteLine();
+        
         var compressedBytes = CompressBytes(in bytes);
+        Console.WriteLine("Compressed bytes:");
+        foreach (var b in compressedBytes)
+        {
+            Console.Write(b + " ");
+        }
 
+        var abc = GetBitesStringFromByteArray(compressedBytes);
+        Console.WriteLine(abc);
         if (compressedBytes.Count < bytes.Count) // using compressing
         {
             // add rest part of header
@@ -104,7 +122,7 @@ public class Zipper
         {
             fileBitArrayString.Append(bytesProbabilityDictSum[byteEntry]);
         }
-        
+
         byte[] fileByteArray = ConvertStringBitsToByteArray(fileBitArrayString.ToString());
 
         compressBytes.AddRange(fileByteArray);
@@ -150,7 +168,11 @@ public class Zipper
         
         if (compressingCode == CodingByteWithCompressing) // with compressing
         {
-            DecodeFilesWithCompressing(in binaryReader);
+            var decodedBytes = DecodeFilesWithCompressing(in binaryReader);
+            foreach (var b in decodedBytes)
+            {
+                Console.Write(b + " ");
+            }
         }
         else // without compressing
         {
@@ -158,18 +180,47 @@ public class Zipper
         }
     }
 
-    private static void DecodeFilesWithCompressing(in BinaryReader reader)
+    private static List<byte> DecodeFilesWithCompressing(in BinaryReader reader)
     {
         var codes = GetCodesForBytes(in reader);
 
         var compressedBytes = reader.ReadBytes(Convert.ToInt32(reader.BaseStream.Length));
         
         var bitesString = GetBitesStringFromByteArray(compressedBytes);
-        // TODO: decompress bytes
+
         Console.WriteLine(bitesString);
+        
+        var substr = "";
+        var start = 0;
+        var len = 1;
+        List<byte> decodedBytes = new();
+        while (start < bitesString.Length)
+        {
+            substr = bitesString.Substring(start, len);
+            var filteredCodes = codes.Keys.Where(code => code.StartsWith(substr)).ToList();
+            if (filteredCodes.Count == 0)
+            {
+                throw new DecodingException($"No one code starts with {substr}");
+            }
+            if (filteredCodes.Count == 1)
+            {
+                var code = codes[filteredCodes[0]];
+                decodedBytes.Add(Convert.ToByte(code));
+                foreach (var b in decodedBytes)
+                {       
+                    Console.Write(b + " ");
+                }
+                start += filteredCodes[0].Length;
+                len = 1;
+            }
+
+            len++;
+        }
+
+        return decodedBytes;
     }
 
-    private static string GetBitesStringFromByteArray(IEnumerable<byte> bytes)
+    private static string GetBitesStringFromByteArray(IEnumerable<byte> bytes) 
     {
         StringBuilder sb = new();
 
@@ -182,21 +233,28 @@ public class Zipper
         return sb.ToString();
     }
 
-    private static Dictionary<bool[], byte> GetCodesForBytes(in BinaryReader reader)
+    private static Dictionary<string, string> GetCodesForBytes(in BinaryReader reader)
     {
-        Dictionary<bool[], byte> codes = new();
+        Dictionary<string, string> codes = new();
 
         var dictLen = reader.ReadByte() + 1;
         for (var i = 0; i < dictLen; i++)
         {
             var symbol = reader.ReadByte();
+            Console.Write($"{symbol} - ");
             var codeLen = reader.ReadByte() + 1;
             var codeBytes = reader.ReadBytes((int)Math.Ceiling(codeLen / 8d));
+            var str = "";
             foreach (var b in codeBytes)
             {
-                var res = GetBites(b);
-                codes[res] = symbol;
+                var res = GetBites(b).Select(bit => bit ? "1" : "0");
+                str += string.Join("", res);
             }
+
+            if (str == "00000000") str = "0";
+            Console.WriteLine(str);
+            var tempSymbol = symbol.ToString();
+            codes[str] = tempSymbol == "0" ? tempSymbol : tempSymbol.Replace("0", "!");
         }
 
         return codes;
@@ -205,9 +263,8 @@ public class Zipper
     private static bool[] GetBites(byte b)
     {
         var str = Convert.ToString(b, 2);
-        return str.PadLeft(8).ToArray().Select(c => c == '1').ToArray();
+        return str.ToArray().Select(c => c == '1').ToArray();
     }
-    
     
     private void DecodeFilesWithoutCompressing(in BinaryReader reader)
     {
@@ -271,19 +328,11 @@ public class Zipper
         
         return n;
     }
-
-
-    //FOR DECODE
-    /*
-        long x = Convert.ToInt64(binary, 2);
-        double y1 = BitConverter.Int64BitsToDouble(x);
-    */
-
+    
     private static byte ConvertOneByteIntToInt(int oneByteNumber)
     {
         return Convert.ToByte((oneByteNumber - 1).ToString());
     }
-
     
     private static byte[] ConvertStringBitsToByteArray(string bits)
     {
