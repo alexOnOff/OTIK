@@ -46,34 +46,31 @@ public class Zipper
 
         var bytes = new List<byte>();
         ProcessDirectory(_filesDirectory, ref bytes);
-        Console.WriteLine("Original bytes: ");
-        foreach (var b in bytes)
-        {
-            Console.Write(b + " ");
-        }
-
-        Console.WriteLine();
         
         var compressedBytes = CompressBytes(in bytes);
-        Console.WriteLine("Compressed bytes:");
-        foreach (var b in compressedBytes)
-        {
-            Console.Write(b + " ");
-        }
 
         var abc = GetBitesStringFromByteArray(compressedBytes);
-        Console.WriteLine(abc);
+
         if (compressedBytes.Count < bytes.Count) // using compressing
         {
+            Console.WriteLine("Archive was compressed");
+            
             // add rest part of header
             writer.Write(CodingByteWithCompressing);
             writer.Write(AddByte);
 
+            foreach (var b in compressedBytes)
+            {
+                Console.Write(b + " ");
+            }
+            
             // write content
             compressedBytes.ForEach(b => writer.Write(b));
         }
         else // NOT using compressing
         {
+            Console.WriteLine("Archive was NOT compressed");
+            
             // add rest part of header
             writer.Write(CodingByteWithoutCompressing);
             writer.Write(AddByte);
@@ -105,8 +102,6 @@ public class Zipper
             {
                 binary = binary.Substring(8, length);
             }
-
-            Console.WriteLine(binary + " - " + byteEntry.Key);
 
             bytesProbabilityDictSum.Add(byteEntry.Key, binary);
             probabilitySum += byteEntry.Value;
@@ -170,14 +165,29 @@ public class Zipper
         
         if (compressingCode == CodingByteWithCompressing) // with compressing
         {
+            Console.WriteLine("Archive was decompressed and encoded");
+            
             var decodedBytes = DecodeFilesWithCompressing(in binaryReader);
-            foreach (var b in decodedBytes)
+            using var ms = new MemoryStream(decodedBytes.ToArray());
+            using var reader = new BinaryReader(ms);
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
             {
-                Console.Write(b + " ");
+                var fileNameLen = reader.ReadInt32();
+                var fileName = new string(reader.ReadChars(fileNameLen));
+
+                var fileLen = reader.ReadInt32();
+                var fileByteArray = reader.ReadBytes(fileLen);
+
+                var filePath = Path.Combine(_encodedFilesPath, fileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+                using var fs = File.Create(filePath);
+                fs.Write(fileByteArray, 0, fileLen);
             }
         }
         else // without compressing
         {
+            Console.WriteLine("Archive was encoded (compressing was not used)");
+            
             DecodeFilesWithoutCompressing(in binaryReader);
         }
     }
@@ -190,8 +200,6 @@ public class Zipper
         
         var bitesString = GetBitesStringFromByteArray(compressedBytes);
 
-        Console.WriteLine(bitesString);
-        
         var substr = "";
         var start = 0;
         var len = 1;
@@ -209,7 +217,6 @@ public class Zipper
             {
                 var code = codes[filteredCodes[0]];
                 decodedBytes.Add(Convert.ToByte(code));
-                Console.Write(code + " ");
 
                 start += filteredCodes[0].Length;
                 len = 0;
@@ -218,7 +225,7 @@ public class Zipper
             len++;
         }
 
-        return decodedBytes; // CORRECT
+        return decodedBytes;
     }
 
     private static string GetBitesStringFromByteArray(IEnumerable<byte> bytes) 
@@ -246,7 +253,6 @@ public class Zipper
         for (var i = 0; i < dictLen; i++)
         {
             var symbol = reader.ReadByte();
-            Console.Write($"{symbol} - ");
             var codeLen = reader.ReadByte() + 1;
             var codeBytes = reader.ReadBytes((int)Math.Ceiling(codeLen / 8d));
             var str = "";
@@ -260,7 +266,6 @@ public class Zipper
 
             str = str.Substring(0, codeLen);
             if (str == "00000000") str = "0";
-            Console.WriteLine(str);
             var tempSymbol = symbol.ToString();
             codes[str] = tempSymbol;
         }
