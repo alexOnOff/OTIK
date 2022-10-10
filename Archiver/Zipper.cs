@@ -1,6 +1,5 @@
-﻿using System.Collections;
-using System.Text;
-using System;
+﻿using System.Text;
+using static Archiver.BytesManager;
 
 namespace Archiver;
 
@@ -12,12 +11,13 @@ public class Zipper
 
     //  Archive header fields
     private static readonly byte[] Signature = { 0x6e, 0x6b, 0x76, 0x64 };
-    private const byte Version = 0x32;
+    private const byte Version = 0x33;
     private const byte CodingByteWithoutCompressing = 0x30;
-    private const byte CodingByteWithCompressing = 0x31;
+    private const byte CodingByteUsedRle = 0x31;
+    private const byte CodingByteUsedShannon = 0x32;
+    private const byte CodingByteUsedRleAndShannon = 0x33;
+    
     private const byte AddByte = 0x30;
-
-    private static readonly int ArchiveBytesOffset = Signature.Length + 4;
 
     private readonly string _directory;
     private readonly string _archivePath;
@@ -34,97 +34,75 @@ public class Zipper
 
     public void Encode()
     {
+        // Delete array if it's already exists
         if (File.Exists(_archivePath))
         {
             File.Delete(_archivePath);
         }
+        
+        // writer for archiver
         using var writer = new BinaryWriter(File.Open(_archivePath, FileMode.OpenOrCreate));
         
         // write header
         writer.Write(Signature);
         writer.Write(Version);
-
+        
+        // get bytes of files to be encode
         var bytes = new List<byte>();
         ProcessDirectory(_filesDirectory, ref bytes);
         
-        var compressedBytes = CompressBytes(in bytes);
+        // TODO: compress using only RLE
+        List<byte> bytesCompressedByRle = null!;
+        
+        // compress bytes using only Shannon code
+        var bytesCompressedByShannon = CompressBytesUsingShannon(in bytes);
 
-        var abc = GetBitesStringFromByteArray(compressedBytes);
+        // compress bytes after RLE with Shannon code
+        var bytesCompressedByRleAndShanon = CompressBytesUsingShannon(in bytesCompressedByRle);
+        
+        // length
+        var direct = bytes.Count;
+        var rle = bytesCompressedByRle.Count;
+        var shannon = bytesCompressedByShannon.Count;
+        var rleAndShannon = bytesCompressedByRleAndShanon.Count;
 
-        if (compressedBytes.Count < bytes.Count) // using compressing
+        if (direct >= rle && direct >= shannon && direct >= rleAndShannon)
         {
-            Console.WriteLine("Archive was compressed");
+            // direct bytes encoding
             
-            // add rest part of header
-            writer.Write(CodingByteWithCompressing);
             writer.Write(AddByte);
-
-            foreach (var b in compressedBytes)
-            {
-                Console.Write(b + " ");
-            }
-            
-            // write content
-            compressedBytes.ForEach(b => writer.Write(b));
+            bytes.ForEach(b => writer.Write(b));
+            Console.WriteLine("Encode: direct bytes encoding");
         }
-        else // NOT using compressing
+        else if (rle >= direct && rle >= shannon && rle >= rleAndShannon)
         {
-            Console.WriteLine("Archive was NOT compressed");
+            // using only RLE
             
-            // add rest part of header
-            writer.Write(CodingByteWithoutCompressing);
             writer.Write(AddByte);
-
-            // write content
-            bytes.ForEach((b => writer.Write(b)));
+            bytesCompressedByRle.ForEach(b => writer.Write(b));
+            Console.WriteLine("Encode: using only RLE");
+        }
+        else if (shannon >= direct && shannon >= rle && shannon >= rleAndShannon)
+        {
+            // using only Shannon code
+            
+            writer.Write(AddByte);
+            bytesCompressedByShannon.ForEach(b => writer.Write(b));
+            Console.WriteLine("Encode: using only Shannon code");
+        }
+        else if (rleAndShannon >= direct && rleAndShannon >= rle && rleAndShannon >= shannon)
+        {
+            // using RLE and Shannon code (after RLE)
+            
+            writer.Write(AddByte);
+            bytesCompressedByRleAndShanon.ForEach(b => writer.Write(b));
+            Console.WriteLine("Encode: using RLE and Shannon code (Shannon after RLE)");
         }
     }
-
-    private static List<byte> CompressBytes(in List<byte> bytes)
+    
+    public void CompressUsingRle()
     {
-        List<byte> compressBytes = new();
-        StringBuilder fileBitArrayString = new(16 * bytes.Count);
-
-        var bytesDict = FileManager.GetEntriesCount(bytes);
-        var bytesProbabilityDict = FileManager.GetEntriesProbability(bytesDict);
-        bytesProbabilityDict = FileManager.SortDictionary(bytesProbabilityDict, SortType.ByEntries);
-        double probabilitySum = 0;
-        var bytesProbabilityDictSum = new Dictionary<byte, string>();
-        compressBytes.Add(ConvertOneByteIntToInt(bytesProbabilityDict.Count)); // количество символов в словаре
-
-        foreach (var byteEntry in bytesProbabilityDict)
-        {
-            var y = BitConverter.DoubleToInt64Bits(probabilitySum);
-            var length = GetLenghtOfBinary(byteEntry.Value);
-            string binary = Convert.ToString(y, 2);
-
-            if (binary.Length > 24)
-            {
-                binary = binary.Substring(8, length);
-            }
-
-            bytesProbabilityDictSum.Add(byteEntry.Key, binary);
-            probabilitySum += byteEntry.Value;
-
-            compressBytes.Add(byteEntry.Key);
-            byte b = ConvertOneByteIntToInt(binary.Length);
-            compressBytes.Add(ConvertOneByteIntToInt(binary.Length)); // длина кода 
-
-            byte[] symbolCode = ConvertStringBitsToByteArray(binary);
-
-            compressBytes.AddRange(symbolCode);
-        }
-
-        foreach (var byteEntry in bytes)
-        {
-            fileBitArrayString.Append(bytesProbabilityDictSum[byteEntry]);
-        }
-
-        byte[] fileByteArray = ConvertStringBitsToByteArray(fileBitArrayString.ToString());
-
-        compressBytes.AddRange(fileByteArray);
-
-        return compressBytes;
+        throw new NotImplementedException();
     }
 
     public void Decode()
@@ -165,7 +143,7 @@ public class Zipper
         
         if (compressingCode == CodingByteWithCompressing) // with compressing
         {
-            Console.WriteLine("Archive was decompressed and encoded");
+            Console.WriteLine("Encode: using Shannon code");
             
             var decodedBytes = DecodeFilesWithCompressing(in binaryReader);
             using var ms = new MemoryStream(decodedBytes.ToArray());
@@ -186,7 +164,7 @@ public class Zipper
         }
         else // without compressing
         {
-            Console.WriteLine("Archive was encoded (compressing was not used)");
+            Console.WriteLine("Encode: using direct bytes writing");
             
             DecodeFilesWithoutCompressing(in binaryReader);
         }
@@ -197,10 +175,10 @@ public class Zipper
         var codes = GetCodesForBytes(in reader);
 
         var compressedBytes = reader.ReadBytes(Convert.ToInt32(reader.BaseStream.Length));
-        
+
         var bitesString = GetBitesStringFromByteArray(compressedBytes);
 
-        var substr = "";
+        string substr;
         var start = 0;
         var len = 1;
         List<byte> decodedBytes = new();
@@ -208,12 +186,13 @@ public class Zipper
         {
             substr = bitesString.Substring(start, len);
             var filteredCodes = codes.Keys.Where(code => code.StartsWith(substr)).ToList();
-            
+
             if (filteredCodes.Count == 0)
             {
                 throw new DecodingException($"No one code starts with {substr}");
             }
-            if (filteredCodes.Count == 1  && filteredCodes.Contains(substr))
+
+            if (filteredCodes.Count == 1 && filteredCodes.Contains(substr))
             {
                 var code = codes[filteredCodes[0]];
                 decodedBytes.Add(Convert.ToByte(code));
@@ -226,57 +205,6 @@ public class Zipper
         }
 
         return decodedBytes;
-    }
-
-    private static string GetBitesStringFromByteArray(IEnumerable<byte> bytes) 
-    {
-        StringBuilder sb = new();
-
-        foreach (var b in bytes)
-        {
-            var bites = GetBites(b);
-            for (int i = 0; i < 8 - bites.Length; i++)
-            {
-                sb.Append("0");
-            }
-            sb.Append(string.Join("", bites.Select(bit => bit ? "1" : "0")));
-        }
-
-        return sb.ToString();
-    }
-
-    private static Dictionary<string, string> GetCodesForBytes(in BinaryReader reader)
-    {
-        Dictionary<string, string> codes = new();
-
-        var dictLen = reader.ReadByte() + 1;
-        for (var i = 0; i < dictLen; i++)
-        {
-            var symbol = reader.ReadByte();
-            var codeLen = reader.ReadByte() + 1;
-            var codeBytes = reader.ReadBytes((int)Math.Ceiling(codeLen / 8d));
-            var str = "";
-            foreach (var b in codeBytes)
-            {
-                var res = GetBites(b).Select(bit => bit ? "1" : "0");
-                var temp = string.Join("", res);
-                temp = temp.PadLeft(8, '0');
-                str += string.Join("", temp);
-            }
-
-            str = str.Substring(0, codeLen);
-            if (str == "00000000") str = "0";
-            var tempSymbol = symbol.ToString();
-            codes[str] = tempSymbol;
-        }
-
-        return codes;
-    }
-
-    private static bool[] GetBites(byte b)
-    {
-        var str = Convert.ToString(b, 2);
-        return str.ToArray().Select(c => c == '1').ToArray();
     }
     
     private void DecodeFilesWithoutCompressing(in BinaryReader reader)
@@ -326,38 +254,5 @@ public class Zipper
         var contentBytes = File.ReadAllBytes(fileInfo.FullName);
         bytes.AddRange(BitConverter.GetBytes(contentBytes.Length));
         bytes.AddRange(contentBytes);
-    }
-
-    private static int GetLenghtOfBinary(double probability)
-    {
-        if (probability >= 1)
-            throw new Exception();
-
-        int n = 1;
-        while((double)1/n > probability && n < 24)
-        {
-            n++;
-        }
-        
-        return n;
-    }
-    
-    private static byte ConvertOneByteIntToInt(int oneByteNumber)
-    {
-        return Convert.ToByte((oneByteNumber - 1).ToString());
-    }
-    
-    private static byte[] ConvertStringBitsToByteArray(string bits)
-    {
-        int numOfBytes = (int)Math.Ceiling(bits.Length / 8d);
-        byte[] bytes = new byte[numOfBytes];
-        bits = bits.PadRight(numOfBytes * 8, '0');
-
-        for (var i = 0; i < numOfBytes; ++i)
-        {
-            bytes[i] = Convert.ToByte(bits.Substring(8 * i, 8), 2);
-        }
-
-        return bytes;
     }
 }
