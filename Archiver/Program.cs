@@ -1,6 +1,4 @@
-﻿using System.Buffers.Binary;
-
-namespace Archiver;
+﻿namespace Archiver;
 
 public static class Program
 {
