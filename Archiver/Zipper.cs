@@ -66,7 +66,7 @@ public class Zipper
         var shannon = bytesCompressedByShannon.Count;
         var rleAndShannon = bytesCompressedByRleAndShanon.Count;
 
-        if (direct >= rle && direct >= shannon && direct >= rleAndShannon)
+        if (direct <= rle && direct <= shannon && direct <= rleAndShannon)
         {
             // direct bytes encoding
             writer.Write(CodingByteWithoutCompressing);
@@ -74,7 +74,7 @@ public class Zipper
             bytes.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: direct bytes encoding");
         }
-        else if (rle >= direct && rle >= shannon && rle >= rleAndShannon)
+        else if (rle <= direct && rle <= shannon && rle <= rleAndShannon)
         {
             // using only RLE
             writer.Write(CodingByteUsedRle);
@@ -82,7 +82,7 @@ public class Zipper
             bytesCompressedByRle.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: using only RLE");
         }
-        else if (shannon >= direct && shannon >= rle && shannon >= rleAndShannon)
+        else if (shannon <= direct && shannon <= rle && shannon <= rleAndShannon)
         {
             // using only Shannon code
             writer.Write(CodingByteUsedShannon);
@@ -90,7 +90,7 @@ public class Zipper
             bytesCompressedByShannon.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: using only Shannon code");
         }
-        else if (rleAndShannon >= direct && rleAndShannon >= rle && rleAndShannon >= shannon)
+        else if (rleAndShannon <= direct && rleAndShannon <= rle && rleAndShannon <= shannon)
         {
             // using RLE and Shannon code (after RLE)
             writer.Write(CodingByteUsedRleAndShannon);
