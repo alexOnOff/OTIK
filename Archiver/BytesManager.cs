@@ -88,4 +88,6 @@ public static class BytesManager
 
         return bytes;
     }
+
+    internal static string GetStringRepresentationOfByte(byte b) => Convert.ToString(b, 2);
 }

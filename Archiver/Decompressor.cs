@@ -4,9 +4,39 @@ namespace Archiver;
 
 public static class Decompressor
 {
-    internal static List<byte> DecompressUsingRle(IEnumerable<byte> bytes)
+    internal static List<byte> DecompressUsingRle(IEnumerable<byte> enumerableBytes)
     {
-        throw new NotImplementedException();
+        var bytes = enumerableBytes.ToList();
+        
+        var decodedBytes = new List<byte>();
+        
+        for (var i = 0; i < bytes.Count;)
+        {
+            var flag = GetStringRepresentationOfByte(bytes[i]).PadLeft(8, '0');
+            var cnt = Convert.ToByte(flag[1..], 2);
+            switch (flag[0])
+            {
+                case '1': // repeating byte
+                    var b = bytes[i + 1];
+                    i++;
+                    decodedBytes.AddRange(Enumerable.Repeat(b, cnt + 2));
+                    break;
+                case '0': // non repeating bytes
+                    for (var j = 0; j < cnt + 1; j++)
+                    {
+                        var nextByte = bytes[i + 1];
+                        decodedBytes.Add(nextByte);
+                        i++;
+                    }
+                    break;
+                default:
+                    throw new AggregateException($"Binary string has illegal characters: {flag}");
+            }
+
+            i++;
+        }
+
+        return decodedBytes;
     }
     
     internal static List<byte> DecompressUsingShannon(in BinaryReader reader)

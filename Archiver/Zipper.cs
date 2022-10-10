@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using static Archiver.BytesManager;
 using static Archiver.Compressor;
 using static Archiver.Decompressor;
 
