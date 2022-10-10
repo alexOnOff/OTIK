@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using static Archiver.BytesManager;
 using static Archiver.Compressor;
+using static Archiver.Decompressor;
 
 namespace Archiver;
 
@@ -147,29 +148,40 @@ public class Zipper
         var codingByte = binaryReader.ReadByte();
         _ = binaryReader.ReadByte(); // skip AddByte
 
+        IEnumerable<byte> decodedBytes;
         switch (codingByte)
         {
             case CodingByteWithoutCompressing:
+            {
                 Console.WriteLine("Decode: direct bytes decoding");
-                var bytes = binaryReader.ReadBytes((int)binaryReader.BaseStream.Length);
-                CreateFilesFromBytes(bytes);
+                decodedBytes = binaryReader.ReadBytes((int)binaryReader.BaseStream.Length);
                 break;
+            }
             case CodingByteUsedRle:
+            {
                 Console.WriteLine("Decode: using only RLE");
-                // TODO: finish it
+                var bytes = binaryReader.ReadBytes((int)binaryReader.BaseStream.Length);
+                decodedBytes = DecompressUsingRle(bytes);
                 break;
+            }
             case CodingByteUsedShannon:
+            {
                 Console.WriteLine("Decode: using only Shannon code");
-                var decodedBytes = DecodeFileUsingShannon(in binaryReader);
-                CreateFilesFromBytes(decodedBytes);
+                decodedBytes = DecompressUsingShannon(in binaryReader);
                 break;
+            }
             case CodingByteUsedRleAndShannon:
+            {
                 Console.WriteLine("Decode: using RLE and Shannon code (Shannon after RLE)");
-                // TODO: finish it
+                decodedBytes = DecompressUsingShannon(in binaryReader);
+                decodedBytes = DecompressUsingRle(decodedBytes);
                 break;
+            }
             default:
                 throw new NotSupportedException($"There is not compressing algorithm with code: ${codingByte}");
         }
+        
+        CreateFilesFromBytes(decodedBytes);
     }
 
     private void CreateFilesFromBytes(in IEnumerable<byte> bytes)
@@ -190,44 +202,7 @@ public class Zipper
             fs.Write(fileByteArray, 0, fileLen);
         }
     }
-
-    private static List<byte> DecodeFileUsingShannon(in BinaryReader reader)
-    {
-        var codes = GetCodesForBytes(in reader);
-
-        var compressedBytes = reader.ReadBytes(Convert.ToInt32(reader.BaseStream.Length));
-
-        var bitesString = GetBitesStringFromByteArray(compressedBytes);
-
-        string substr;
-        var start = 0;
-        var len = 1;
-        List<byte> decodedBytes = new();
-        while (start < bitesString.Length)
-        {
-            substr = bitesString.Substring(start, len);
-            var filteredCodes = codes.Keys.Where(code => code.StartsWith(substr)).ToList();
-
-            if (filteredCodes.Count == 0)
-            {
-                throw new DecodingException($"No one code starts with {substr}");
-            }
-
-            if (filteredCodes.Count == 1 && filteredCodes.Contains(substr))
-            {
-                var code = codes[filteredCodes[0]];
-                decodedBytes.Add(Convert.ToByte(code));
-
-                start += filteredCodes[0].Length;
-                len = 0;
-            }
-
-            len++;
-        }
-
-        return decodedBytes;
-    }
-
+    
     private void ProcessDirectory(string path, ref List<byte> bytes)
     {
         var files = Directory.GetFiles(path);
