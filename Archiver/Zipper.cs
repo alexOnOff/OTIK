@@ -52,9 +52,8 @@ public class Zipper
         // get bytes of files to be encode
         var bytes = new List<byte>();
         ProcessDirectory(_filesDirectory, ref bytes);
-
-        // TODO: compress using only RLE
-        List<byte> bytesCompressedByRle = null!;
+        
+        List<byte> bytesCompressedByRle = CompressUsingRle(in bytes);
 
         // compress bytes using only Shannon code
         var bytesCompressedByShannon = CompressUsingShannon(in bytes);

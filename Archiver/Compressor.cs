@@ -5,7 +5,7 @@ namespace Archiver;
 
 public static class Compressor
 {
-    internal static List<byte> CompressUsingRle(in IEnumerable<byte> bytes)
+    internal static List<byte> CompressUsingRle(in List<byte> bytes)
     {
         throw new NotImplementedException();
     }
