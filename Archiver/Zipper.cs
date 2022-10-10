@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using static Archiver.BytesManager;
+using static Archiver.Compressor;
 
 namespace Archiver;
 
@@ -16,7 +17,7 @@ public class Zipper
     private const byte CodingByteUsedRle = 0x31;
     private const byte CodingByteUsedShannon = 0x32;
     private const byte CodingByteUsedRleAndShannon = 0x33;
-    
+
     private const byte AddByte = 0x30;
 
     private readonly string _directory;
@@ -28,7 +29,7 @@ public class Zipper
     {
         _directory = directory;
         _archivePath = Path.Combine(directory, ArchiveName);
-        _filesDirectory =  Path.Combine(_directory, "files");
+        _filesDirectory = Path.Combine(_directory, "files");
         _encodedFilesPath = Path.Combine(_directory, "decodedFiles/");
     }
 
@@ -39,27 +40,27 @@ public class Zipper
         {
             File.Delete(_archivePath);
         }
-        
+
         // writer for archiver
         using var writer = new BinaryWriter(File.Open(_archivePath, FileMode.OpenOrCreate));
-        
+
         // write header
         writer.Write(Signature);
         writer.Write(Version);
-        
+
         // get bytes of files to be encode
         var bytes = new List<byte>();
         ProcessDirectory(_filesDirectory, ref bytes);
-        
+
         // TODO: compress using only RLE
         List<byte> bytesCompressedByRle = null!;
-        
+
         // compress bytes using only Shannon code
-        var bytesCompressedByShannon = CompressBytesUsingShannon(in bytes);
+        var bytesCompressedByShannon = CompressUsingShannon(in bytes);
 
         // compress bytes after RLE with Shannon code
-        var bytesCompressedByRleAndShanon = CompressBytesUsingShannon(in bytesCompressedByRle);
-        
+        var bytesCompressedByRleAndShanon = CompressUsingShannon(in bytesCompressedByRle);
+
         // length
         var direct = bytes.Count;
         var rle = bytesCompressedByRle.Count;
@@ -69,7 +70,7 @@ public class Zipper
         if (direct >= rle && direct >= shannon && direct >= rleAndShannon)
         {
             // direct bytes encoding
-            
+            writer.Write(CodingByteWithoutCompressing);
             writer.Write(AddByte);
             bytes.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: direct bytes encoding");
@@ -77,7 +78,7 @@ public class Zipper
         else if (rle >= direct && rle >= shannon && rle >= rleAndShannon)
         {
             // using only RLE
-            
+            writer.Write(CodingByteUsedRle);
             writer.Write(AddByte);
             bytesCompressedByRle.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: using only RLE");
@@ -85,7 +86,7 @@ public class Zipper
         else if (shannon >= direct && shannon >= rle && shannon >= rleAndShannon)
         {
             // using only Shannon code
-            
+            writer.Write(CodingByteUsedShannon);
             writer.Write(AddByte);
             bytesCompressedByShannon.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: using only Shannon code");
@@ -93,16 +94,21 @@ public class Zipper
         else if (rleAndShannon >= direct && rleAndShannon >= rle && rleAndShannon >= shannon)
         {
             // using RLE and Shannon code (after RLE)
-            
+            writer.Write(CodingByteUsedRleAndShannon);
             writer.Write(AddByte);
             bytesCompressedByRleAndShanon.ForEach(b => writer.Write(b));
             Console.WriteLine("Encode: using RLE and Shannon code (Shannon after RLE)");
         }
-    }
-    
-    public void CompressUsingRle()
-    {
-        throw new NotImplementedException();
+        else
+        {
+            var sb = new StringBuilder("Something wrong with bytes arrays\n");
+            sb.Append("Length:\n");
+            sb.Append($"Original bytes: ${direct}\n");
+            sb.Append($"Using only RLE: ${bytesCompressedByRle}\n");
+            sb.Append($"Using only Shannon: ${bytesCompressedByShannon}\n");
+            sb.Append($"Using RLE and Shannon: ${bytesCompressedByRleAndShanon}\n");
+            throw new AggregateException(sb.ToString());
+        }
     }
 
     public void Decode()
@@ -121,7 +127,7 @@ public class Zipper
         {
             throw new FormatException("Input file has incorrect signature!");
         }
-        
+
         // Prepare folder for decoded files
         if (!Directory.Exists(_encodedFilesPath))
         {
@@ -135,42 +141,57 @@ public class Zipper
         }
 
         var version = binaryReader.ReadByte();
-        if (version != 0x32)
+        if (version != Version)
             throw new NotSupportedException($"Version ${version} not supported");
 
-        var compressingCode = binaryReader.ReadByte();
+        var codingByte = binaryReader.ReadByte();
         _ = binaryReader.ReadByte(); // skip AddByte
-        
-        if (compressingCode == CodingByteWithCompressing) // with compressing
-        {
-            Console.WriteLine("Encode: using Shannon code");
-            
-            var decodedBytes = DecodeFilesWithCompressing(in binaryReader);
-            using var ms = new MemoryStream(decodedBytes.ToArray());
-            using var reader = new BinaryReader(ms);
-            while (reader.BaseStream.Position < reader.BaseStream.Length)
-            {
-                var fileNameLen = reader.ReadInt32();
-                var fileName = new string(reader.ReadChars(fileNameLen));
 
-                var fileLen = reader.ReadInt32();
-                var fileByteArray = reader.ReadBytes(fileLen);
-
-                var filePath = Path.Combine(_encodedFilesPath, fileName);
-                Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-                using var fs = File.Create(filePath);
-                fs.Write(fileByteArray, 0, fileLen);
-            }
-        }
-        else // without compressing
+        switch (codingByte)
         {
-            Console.WriteLine("Encode: using direct bytes writing");
-            
-            DecodeFilesWithoutCompressing(in binaryReader);
+            case CodingByteWithoutCompressing:
+                Console.WriteLine("Decode: direct bytes decoding");
+                var bytes = binaryReader.ReadBytes((int)binaryReader.BaseStream.Length);
+                CreateFilesFromBytes(bytes);
+                break;
+            case CodingByteUsedRle:
+                Console.WriteLine("Decode: using only RLE");
+                // TODO: finish it
+                break;
+            case CodingByteUsedShannon:
+                Console.WriteLine("Decode: using only Shannon code");
+                var decodedBytes = DecodeFileUsingShannon(in binaryReader);
+                CreateFilesFromBytes(decodedBytes);
+                break;
+            case CodingByteUsedRleAndShannon:
+                Console.WriteLine("Decode: using RLE and Shannon code (Shannon after RLE)");
+                // TODO: finish it
+                break;
+            default:
+                throw new NotSupportedException($"There is not compressing algorithm with code: ${codingByte}");
         }
     }
 
-    private static List<byte> DecodeFilesWithCompressing(in BinaryReader reader)
+    private void CreateFilesFromBytes(in IEnumerable<byte> bytes)
+    {
+        using var ms = new MemoryStream(bytes.ToArray());
+        using var reader = new BinaryReader(ms);
+        while (reader.BaseStream.Position < reader.BaseStream.Length)
+        {
+            var fileNameLen = reader.ReadInt32();
+            var fileName = new string(reader.ReadChars(fileNameLen));
+
+            var fileLen = reader.ReadInt32();
+            var fileByteArray = reader.ReadBytes(fileLen);
+
+            var filePath = Path.Combine(_encodedFilesPath, fileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+            using var fs = File.Create(filePath);
+            fs.Write(fileByteArray, 0, fileLen);
+        }
+    }
+
+    private static List<byte> DecodeFileUsingShannon(in BinaryReader reader)
     {
         var codes = GetCodesForBytes(in reader);
 
@@ -206,23 +227,6 @@ public class Zipper
 
         return decodedBytes;
     }
-    
-    private void DecodeFilesWithoutCompressing(in BinaryReader reader)
-    {
-        while (reader.BaseStream.Position < reader.BaseStream.Length)
-        {
-            var fileNameLen = reader.ReadInt32();
-            var fileName = new string(reader.ReadChars(fileNameLen));
-
-            var fileLen = reader.ReadInt32();
-            var fileByteArray = reader.ReadBytes(fileLen);
-
-            var filePath = Path.Combine(_encodedFilesPath, fileName);
-            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
-            using var fs = File.Create(filePath);
-            fs.Write(fileByteArray, 0, fileLen);
-        }
-    }
 
     private void ProcessDirectory(string path, ref List<byte> bytes)
     {
@@ -242,15 +246,15 @@ public class Zipper
     private void ProcessFile(FileInfo fileInfo, ref List<byte> bytes)
     {
         var fileName = fileInfo.FullName.Replace(_filesDirectory + Path.DirectorySeparatorChar, "");
-        
+
         // Skip MacOS system files
         if (fileName.Contains(".DS_Store"))
             return;
-        
+
         var nameBytes = Encoding.UTF8.GetBytes(fileName);
         bytes.AddRange(BitConverter.GetBytes(fileName.Length));
         bytes.AddRange(nameBytes);
-        
+
         var contentBytes = File.ReadAllBytes(fileInfo.FullName);
         bytes.AddRange(BitConverter.GetBytes(contentBytes.Length));
         bytes.AddRange(contentBytes);

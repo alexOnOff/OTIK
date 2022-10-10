@@ -4,53 +4,6 @@ namespace Archiver;
 
 public static class BytesManager
 {
-    internal static List<byte> CompressBytesUsingShannon(in List<byte> bytes)
-    {
-        List<byte> compressBytes = new();
-        StringBuilder fileBitArrayString = new(16 * bytes.Count);
-
-        var bytesDict = FileManager.GetEntriesCount(bytes);
-        var bytesProbabilityDict = FileManager.GetEntriesProbability(bytesDict);
-        bytesProbabilityDict = FileManager.SortDictionary(bytesProbabilityDict, SortType.ByEntries);
-        double probabilitySum = 0;
-        var bytesProbabilityDictSum = new Dictionary<byte, string>();
-        compressBytes.Add(ConvertOneByteIntToInt(bytesProbabilityDict.Count)); // количество символов в словаре
-
-        foreach (var byteEntry in bytesProbabilityDict)
-        {
-            var y = BitConverter.DoubleToInt64Bits(probabilitySum);
-            var length = GetLenghtOfBinary(byteEntry.Value);
-            string binary = Convert.ToString(y, 2);
-
-            if (binary.Length > 24)
-            {
-                binary = binary.Substring(8, length);
-            }
-
-            bytesProbabilityDictSum.Add(byteEntry.Key, binary);
-            probabilitySum += byteEntry.Value;
-
-            compressBytes.Add(byteEntry.Key);
-            byte b = ConvertOneByteIntToInt(binary.Length);
-            compressBytes.Add(ConvertOneByteIntToInt(binary.Length)); // длина кода 
-
-            byte[] symbolCode = ConvertStringBitsToByteArray(binary);
-
-            compressBytes.AddRange(symbolCode);
-        }
-
-        foreach (var byteEntry in bytes)
-        {
-            fileBitArrayString.Append(bytesProbabilityDictSum[byteEntry]);
-        }
-
-        byte[] fileByteArray = ConvertStringBitsToByteArray(fileBitArrayString.ToString());
-
-        compressBytes.AddRange(fileByteArray);
-
-        return compressBytes;
-    }
-
     private static bool[] GetBites(byte b)
     {
         var str = Convert.ToString(b, 2);
@@ -103,7 +56,7 @@ public static class BytesManager
         return codes;
     }
 
-    private static int GetLenghtOfBinary(double probability)
+    internal static int GetLenghtOfBinary(double probability)
     {
         if (probability >= 1)
             throw new ArgumentException("Probability can't be greater that 1");
@@ -117,12 +70,12 @@ public static class BytesManager
         return n;
     }
 
-    private static byte ConvertOneByteIntToInt(int oneByteNumber)
+    internal static byte ConvertOneByteIntToInt(int oneByteNumber)
     {
         return Convert.ToByte((oneByteNumber - 1).ToString());
     }
 
-    private static byte[] ConvertStringBitsToByteArray(string bits)
+    internal static byte[] ConvertStringBitsToByteArray(string bits)
     {
         int numOfBytes = (int)Math.Ceiling(bits.Length / 8d);
         byte[] bytes = new byte[numOfBytes];
