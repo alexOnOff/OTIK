@@ -8,8 +8,8 @@ public static class Program
     {
         try
         {
-            RunArchiver();
-            //RunAnalyzer();
+            //RunArchiver();
+            RunAnalyzer();
         }
         catch (Exception e)
         {

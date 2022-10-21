@@ -1,8 +1,11 @@
+using System.IO;
+
 namespace Archiver;
 
 public class FileManager
 {
     private readonly FileInfo _fileInfo;
+    
 
     public FileManager(string path)
     {
@@ -14,9 +17,9 @@ public class FileManager
     }
 
     public FileManager() {}
-    
+
     private int FileLength => Convert.ToInt32(_fileInfo.Length);
-    
+
     public static Dictionary<T, int> GetEntriesCount<T>(IEnumerable<T> symbols) where T : notnull
     {
         var stats = new Dictionary<T, int>();
@@ -26,6 +29,42 @@ public class FileManager
             stats[symbol] = stats.GetValueOrDefault(symbol, 0) + 1;
         }
 
+        return stats;
+    }
+
+    public static Dictionary<(byte, byte), int> GetPairEntriesCount(int size, FileInfo fileInfo)
+    {
+        var stats = new Dictionary<(byte, byte), int>();
+        byte[] bytes = File.ReadAllBytes(fileInfo.FullName);
+        
+
+        for (int i = 0; i < size - 1; ++i)
+        {
+            if (!stats.ContainsKey((bytes[i + 1], bytes[i])))
+                stats.Add((bytes[i + 1], bytes[i]), 0);
+            stats[(bytes[i + 1], bytes[i])]++;
+        }
+
+        //foreach (var item in stats)
+        //    Console.WriteLine("Substring " + item.Key.Item2 + " " + item.Key.Item1 + " -> " + item.Value + " times");
+
+        return stats;
+    }
+
+    public static Dictionary<byte, int> GetPairSomethingZeroCount(int size, FileInfo fileInfo)
+    {
+        Dictionary<byte, int> stats = new Dictionary<byte, int>();
+        byte[] bytes = File.ReadAllBytes(fileInfo.FullName);
+
+        for (int i = 0; i < size - 1; ++i)
+        {
+            if (!stats.ContainsKey(bytes[i]))
+                stats.Add(bytes[i], 0);
+            stats[bytes[i]]++;
+        }
+        //foreach (var item in stats)
+        //    Console.WriteLine("Substring " + item.Key + " * -> " + item.Value + " times");
+        
         return stats;
     }
 
@@ -42,6 +81,18 @@ public class FileManager
         return symbolProbability;
     }
 
+    public static Dictionary<(byte, byte), double> GetPairEntiriesProbability(Dictionary<byte, int> stats_i, Dictionary<(byte, byte), int> stats_ij)
+    {
+        Dictionary<(byte, byte), double> conditionalProbability = new Dictionary<(byte, byte), double>();
+        foreach (var item in stats_ij)
+        {
+            double probability = (double)item.Value / stats_i[item.Key.Item2];
+            conditionalProbability.Add((item.Key.Item1, item.Key.Item2), probability);
+            //Console.WriteLine(item.Key.Item1 + " | " + item.Key.Item2 + " -> " + probability);
+        }
+
+        return conditionalProbability;
+    }
     private static void PrintStat<T, TV>(Dictionary<T, TV> stat) where T : notnull
     {
         foreach (var kvp in stat)
@@ -109,7 +160,33 @@ public class FileManager
         // Total information amount
         var totalInformationAmountForBytes = informationAmount.Sum(kvp => kvp.Value);
         Console.WriteLine($"\nTotal information amount: {totalInformationAmountForBytes}");
+
+        /*
+         * LAB 4 
+        */
+
+        // Total bites pair count 
+        Console.WriteLine("\n==================\nLAB 4\n==================");
+        Console.WriteLine("\nTotal bites pair count");
+        var bytes4 = File.ReadAllBytes(_fileInfo.FullName);
+        var bytesPairEntriesCount = GetPairEntriesCount(FileLength, _fileInfo);
+        //var sortedBytesPairEntriesCount = SortDictionary(bytesEntriesCount, SortType.Alphabetic);
+        PrintStat(bytesPairEntriesCount);
+
+        // Total bites pair (with fix bite) count
+        Console.WriteLine("\nTotal bites pair with fix byte count");
+        var bytes5 = File.ReadAllBytes(_fileInfo.FullName);
+        var bytesPairWithFixBiteEntriesCount = GetPairSomethingZeroCount(FileLength, _fileInfo);
+        //var sortedBytesPairEntriesCount = SortDictionary(bytesEntriesCount, SortType.Alphabetic);
+        PrintStat(bytesPairWithFixBiteEntriesCount);
+
+        // Probability
+        Console.WriteLine("\nPair bytes entries probability (by count):");
+        var pairBytesEntriesProbability = GetPairEntiriesProbability(bytesEntriesCount, bytesPairEntriesCount);
+        //var sortedBytesEntriesProbability = SortDictionary(bytesEntriesProbability, SortType.Alphabetic);
+        PrintStat(pairBytesEntriesProbability);
     }
+
 
     private void PrintStatsForSymbols()
     {
